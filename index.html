@@ -63,7 +63,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <h2 id="endingTitle"></h2>
     <p id="endingText"></p>
   </div>
-  <button id="feedbackButton" class="primary" type="button">感想を送る</button>
+  <a id="feedbackLink" class="button primary" href="https://docs.google.com/forms/d/e/1FAIpQLSfSCd3LYEpkdDNArxwizjU8SSw0RRf_kyynrjD7vy5q99qv-Q/viewform?usp=publish-editor" target="_blank" rel="noopener">感想を送る</a>
   <button id="endingBackButton" class="ghost" type="button">探索地図へ戻る</button>
 </section>
 
@@ -215,19 +215,12 @@ function resetProgress(){
   localStorage.removeItem(KEY);
   renderHome();
 }
-function feedback(){
-  if(EXPERIENCE.feedbackUrl){
-    location.href = EXPERIENCE.feedbackUrl;
-  } else {
-    alert("次セッションでGoogleフォームURLを接続します");
-  }
-}
 
 $("backButton").addEventListener("click", showHome);
 $("endingBackButton").addEventListener("click", showHome);
 $("resetButton").addEventListener("click", resetProgress);
 $("endingButton").addEventListener("click", showEnding);
-$("feedbackButton").addEventListener("click", feedback);
+
 
 renderHome();
 })();
