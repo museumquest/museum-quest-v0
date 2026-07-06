@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Museum Quest v0.1 — 縄文探索</title>
+<style>
+:root{--bg:#17140f;--panel:#272118;--text:#f5ead7;--muted:#bcae98;--accent:#e7b55a;--danger:#d97a67}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(#17140f,#0e0c09);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;min-height:100vh}
+main{max-width:680px;margin:auto;padding:24px}
+.card{background:rgba(39,33,24,.95);border:1px solid #4a3d2b;border-radius:18px;padding:20px;margin:14px 0;box-shadow:0 12px 30px #0005}
+h1,h2{line-height:1.2}
+.eyebrow{color:var(--accent);letter-spacing:.12em;font-size:.78rem;font-weight:700}
+.muted{color:var(--muted)}
+button,a.button{display:block;text-align:center;text-decoration:none;width:100%;border:0;border-radius:12px;padding:14px;margin:7px 0;font-size:1rem;font-weight:700;cursor:pointer;background:#efe2c8;color:#241d14}
+button.primary,a.primary{background:var(--accent)}
+button.ghost,a.ghost{background:transparent;color:var(--text);border:1px solid #6a5840}
+button:disabled{opacity:.45;cursor:not-allowed}
+.quest-row{display:flex;gap:12px;align-items:center}
+.quest-row .status{font-size:1.4rem}
+.hidden{display:none}
+.result{padding:14px;border-radius:12px;margin-top:12px;background:#15110c}
+.wrong{border-left:4px solid var(--danger)}
+.right{border-left:4px solid var(--accent)}
+.progress{height:9px;background:#0e0c09;border-radius:999px;overflow:hidden}
+.progress>div{height:100%;background:var(--accent)}
+.small{font-size:.86rem}
+</style>
+</head>
+<body>
+<main>
+<section id="home">
+  <p class="eyebrow">MUSEUM QUEST v0.1</p>
+  <h1 id="experienceTitle"></h1>
+  <p id="intro" class="muted"></p>
+  <div class="card">
+    <div class="progress"><div id="progressBar"></div></div>
+    <p id="progressText"></p>
+    <p class="muted small">※この試作では、進捗はこの端末のブラウザ内だけに保存されます。</p>
+  </div>
+  <div id="questList"></div>
+  <button id="endingButton" class="primary" type="button" disabled>最後の記憶をひらく</button>
+  <button id="resetButton" class="ghost" type="button">テスト用：進捗をリセット</button>
+</section>
+
+<section id="questView" class="hidden">
+  <button id="backButton" class="ghost" type="button">← 探索地図へ戻る</button>
+  <div class="card">
+    <p id="questLabel" class="eyebrow"></p>
+    <h2 id="questTitle"></h2>
+    <p id="story"></p>
+    <hr style="border-color:#4a3d2b">
+    <p><strong id="question"></strong></p>
+    <div id="choices"></div>
+    <div id="result"></div>
+  </div>
+</section>
+
+<section id="endingView" class="hidden">
+  <p class="eyebrow">ENDING</p>
+  <div class="card">
+    <h2 id="endingTitle"></h2>
+    <p id="endingText"></p>
+  </div>
+  <button id="feedbackButton" class="primary" type="button">感想を送る</button>
+  <button id="endingBackButton" class="ghost" type="button">探索地図へ戻る</button>
+</section>
+
+<noscript>
+  <div class="card">
+    JavaScriptが無効のため、回答ボタンが動きません。ブラウザでJavaScriptを有効にしてください。
+  </div>
+</noscript>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+// ===== ここが「差し替える棚」 =====
+const EXPERIENCE = {
+  title: "消えた火の記憶",
+  intro: "縄文の展示室に、三つの記憶が眠っている。好きな順に展示を巡り、手がかりを集めよ。",
+  unlockEndingAt: 3,
+  feedbackUrl: "",
+  ending: {
+    title: "火は、誰のものだったのか",
+    text: "三つの記憶がつながった。火も、器も、祈りも、一人では残らない。あなたが見た展示は、遠い過去ではなく、人が共に生きた痕跡だった。"
+  },
+  quests: [
+    {
+      id:"q1",
+      title:"炎のかたち",
+      story:"夜の集落から火が消えた。最初の手がかりは、土器の表面に残されている。",
+      question:"展示された土器を見よ。最も目立つ装飾はどこに集中している？",
+      choices:["底の近く","口縁部の近く","内側だけ"],
+      correct:1,
+      success:"記憶が反応した。飾りは、ただの飾りではないのかもしれない。"
+    },
+    {
+      id:"q2",
+      title:"森から来た者",
+      story:"足跡は森へ続く。人々が何を食べ、何を運んだのかを探れ。",
+      question:"展示資料の中で、縄文人の食生活と関係が深いものを選べ。",
+      choices:["木の実","ガラス瓶","活版印刷","蒸気機関"],
+      correct:0,
+      success:"森の恵みが、集落の時間を支えていた。"
+    },
+    {
+      id:"q3",
+      title:"顔のない祈り",
+      story:"最後の記憶は、人の姿をした小さな存在のそばにある。",
+      question:"展示された土偶を観察せよ。あなたが最初に気づいた特徴に最も近いものは？",
+      choices:["身体表現が強調されている","完全な球体である"],
+      correct:0,
+      success:"三つ目の記憶が開いた。探索地図へ戻れ。"
+    }
+  ]
+};
+// ===== 差し替え棚ここまで =====
+
+const $ = (id) => document.getElementById(id);
+const KEY = "museumQuestV01Cleared";
+
+function getCleared(){
+  try { return JSON.parse(localStorage.getItem(KEY) || "[]"); }
+  catch(e){ return []; }
+}
+function saveCleared(ids){
+  localStorage.setItem(KEY, JSON.stringify(ids));
+}
+function show(section){
+  $("home").classList.add("hidden");
+  $("questView").classList.add("hidden");
+  $("endingView").classList.add("hidden");
+  $(section).classList.remove("hidden");
+}
+function renderHome(){
+  $("experienceTitle").textContent = EXPERIENCE.title;
+  $("intro").textContent = EXPERIENCE.intro;
+  const done = getCleared();
+  $("progressText").textContent = "発見 " + done.length + " / " + EXPERIENCE.quests.length;
+  $("progressBar").style.width = Math.min(100, done.length / EXPERIENCE.quests.length * 100) + "%";
+  $("questList").innerHTML = "";
+
+  EXPERIENCE.quests.forEach((q, i) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const isDone = done.includes(q.id);
+    card.innerHTML =
+      '<div class="quest-row">' +
+      '<div class="status">' + (isDone ? "✓" : "?") + '</div>' +
+      '<div><p class="eyebrow">QUEST ' + String(i+1).padStart(2,"0") + '</p><h2>' + q.title + '</h2></div>' +
+      '</div>';
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = isDone ? "もう一度見る" : "探索する";
+    btn.addEventListener("click", () => openQuest(i));
+    card.appendChild(btn);
+    $("questList").appendChild(card);
+  });
+
+  $("endingButton").disabled = done.length < EXPERIENCE.unlockEndingAt;
+}
+function showHome(){
+  show("home");
+  renderHome();
+}
+function openQuest(i){
+  const q = EXPERIENCE.quests[i];
+  show("questView");
+  $("questLabel").textContent = "QUEST " + String(i+1).padStart(2,"0");
+  $("questTitle").textContent = q.title;
+  $("story").textContent = q.story;
+  $("question").textContent = q.question;
+  $("choices").innerHTML = "";
+  $("result").innerHTML = "";
+  $("result").className = "";
+
+  q.choices.forEach((choice, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = choice;
+    btn.addEventListener("click", () => answer(q, idx));
+    $("choices").appendChild(btn);
+  });
+}
+function answer(q, idx){
+  if(idx === q.correct){
+    const done = getCleared();
+    if(!done.includes(q.id)){
+      done.push(q.id);
+      saveCleared(done);
+    }
+    $("result").className = "result right";
+    $("result").innerHTML = '<strong>発見</strong><p>' + q.success + '</p>';
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "primary";
+    btn.textContent = "探索地図へ戻る";
+    btn.addEventListener("click", showHome);
+    $("result").appendChild(btn);
+  } else {
+    $("result").className = "result wrong";
+    $("result").innerHTML = "<strong>違うようだ。</strong><p>展示をもう一度見てみよう。</p>";
+  }
+}
+function showEnding(){
+  show("endingView");
+  $("endingTitle").textContent = EXPERIENCE.ending.title;
+  $("endingText").textContent = EXPERIENCE.ending.text;
+}
+function resetProgress(){
+  localStorage.removeItem(KEY);
+  renderHome();
+}
+function feedback(){
+  if(EXPERIENCE.feedbackUrl){
+    location.href = EXPERIENCE.feedbackUrl;
+  } else {
+    alert("次セッションでGoogleフォームURLを接続します");
+  }
+}
+
+$("backButton").addEventListener("click", showHome);
+$("endingBackButton").addEventListener("click", showHome);
+$("resetButton").addEventListener("click", resetProgress);
+$("endingButton").addEventListener("click", showEnding);
+$("feedbackButton").addEventListener("click", feedback);
+
+renderHome();
+})();
+</script>
+</body>
+</html>
